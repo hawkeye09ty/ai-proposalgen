@@ -51,7 +51,10 @@ export const CreateProposal = () => {
     try {
       setGenerating(true);
       
-      const generateResponse = await axios.post(`${API}/generate-proposal`, formData);
+      // AI generation can take time, so we increase the timeout to 120 seconds
+      const generateResponse = await axios.post(`${API}/generate-proposal`, formData, {
+        timeout: 120000 // 120 seconds timeout for AI generation
+      });
       const generatedContent = generateResponse.data.content;
 
       setLoading(true);
@@ -72,7 +75,11 @@ export const CreateProposal = () => {
       navigate(`/proposals/${createResponse.data.id}`);
     } catch (error) {
       console.error('Error creating proposal:', error);
-      toast.error(error.response?.data?.detail || 'Failed to generate proposal');
+      if (error.code === 'ECONNABORTED') {
+        toast.error('AI generation timed out. Please try again with a shorter description.');
+      } else {
+        toast.error(error.response?.data?.detail || 'Failed to generate proposal');
+      }
     } finally {
       setGenerating(false);
       setLoading(false);
