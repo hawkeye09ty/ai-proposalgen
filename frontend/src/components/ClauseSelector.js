@@ -64,10 +64,9 @@ export const ClauseSelector = ({ selectedClauses, onClausesChange }) => {
       {clauses.map((clause) => (
         <Card
           key={clause.id}
-          className={`p-4 cursor-pointer border-slate-200 hover:border-blue-300 transition-colors ${
+          className={`p-4 border-slate-200 hover:border-blue-300 transition-colors ${
             selectedClauses.includes(clause.id) ? 'border-blue-400 bg-blue-50/30' : ''
           }`}
-          onClick={() => handleToggleClause(clause.id)}
           data-testid={`clause-option-${clause.id}`}
         >
           <div className="flex items-start gap-3">
@@ -77,7 +76,7 @@ export const ClauseSelector = ({ selectedClauses, onClausesChange }) => {
               className="mt-1"
               data-testid={`clause-checkbox-${clause.id}`}
             />
-            <div className="flex-1">
+            <div className="flex-1 cursor-pointer" onClick={() => handleToggleClause(clause.id)}>
               <div className="flex items-center gap-2 mb-2">
                 <Label className="font-semibold text-slate-900 cursor-pointer">
                   {clause.title}
