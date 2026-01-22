@@ -28,7 +28,7 @@ export const CreateProposal = () => {
     timeline: '',
     selected_clauses: [],
     additional_requirements: '',
-    template_id: '',
+    template_id: 'none',
     deal_value: ''
   });
 
