@@ -166,6 +166,33 @@ export const CreateProposal = () => {
           <Card className="border-slate-200 shadow-sm mb-6">
             <CardHeader>
               <CardTitle className="font-outfit text-2xl font-semibold text-slate-900">
+                Template Selection (Optional)
+              </CardTitle>
+              <CardDescription>Choose an industry template to tailor your proposal</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Select
+                value={formData.template_id}
+                onValueChange={(value) => setFormData({ ...formData, template_id: value })}
+              >
+                <SelectTrigger className="border-slate-200" data-testid="template-select">
+                  <SelectValue placeholder="Select a template" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No Template</SelectItem>
+                  {templates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name} - {template.description}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-200 shadow-sm mb-6">
+            <CardHeader>
+              <CardTitle className="font-outfit text-2xl font-semibold text-slate-900">
                 Client Information
               </CardTitle>
               <CardDescription>Basic details about your client and project</CardDescription>
@@ -238,6 +265,23 @@ export const CreateProposal = () => {
               </div>
 
               <div>
+                <Label htmlFor="deal_value" className="text-slate-700 font-medium mb-2">
+                  Estimated Deal Value (Optional)
+                </Label>
+                <Input
+                  id="deal_value"
+                  name="deal_value"
+                  type="number"
+                  value={formData.deal_value}
+                  onChange={handleChange}
+                  placeholder="e.g., 65000"
+                  className="border-slate-200 focus-visible:ring-slate-900"
+                  data-testid="deal-value-input"
+                />
+                <p className="text-xs text-slate-500 mt-1">Used for analytics tracking</p>
+              </div>
+
+              <div>
                 <Label htmlFor="additional_requirements" className="text-slate-700 font-medium mb-2">
                   Additional Requirements (Optional)
                 </Label>
@@ -250,6 +294,46 @@ export const CreateProposal = () => {
                   className="border-slate-200 focus-visible:ring-slate-900"
                   data-testid="additional-requirements-input"
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-200 shadow-sm mb-6">
+            <CardHeader>
+              <CardTitle className="font-outfit text-2xl font-semibold text-slate-900">
+                Upload Requirements Document (Optional)
+              </CardTitle>
+              <CardDescription>Upload a PDF or TXT file with detailed requirements</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-4">
+                <Label
+                  htmlFor="file-upload"
+                  className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-md cursor-pointer hover:bg-slate-50 transition-colors"
+                >
+                  <Upload className="h-4 w-4" />
+                  Choose File
+                </Label>
+                <Input
+                  id="file-upload"
+                  type="file"
+                  accept=".pdf,.txt"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  data-testid="file-upload-input"
+                />
+                {uploading && (
+                  <div className="flex items-center gap-2 text-slate-600">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Uploading...
+                  </div>
+                )}
+                {uploadedFile && (
+                  <div className="flex items-center gap-2 text-emerald-600">
+                    <FileText className="h-4 w-4" />
+                    {uploadedFile.name}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
