@@ -177,6 +177,9 @@ async def generate_proposal(request: GenerateProposalRequest):
             ).to_list(100)
             clauses_content = "\n\n".join([f"**{c['title']}**\n{c['content']}" for c in clauses])
         
+        additional_req = f'Additional Requirements: {request.additional_requirements}' if request.additional_requirements else ''
+        clauses_section = f'Include these clauses in the proposal:\n{clauses_content}' if clauses_content else ''
+        
         prompt = f"""Generate a professional business proposal with the following details:
 
 Client Name: {request.client_name}
@@ -184,9 +187,9 @@ Project Description: {request.project_description}
 Budget Range: {request.budget_range}
 Timeline: {request.timeline}
 
-{f'Additional Requirements: {request.additional_requirements}' if request.additional_requirements else ''}
+{additional_req}
 
-{f'Include these clauses in the proposal:\n{clauses_content}' if clauses_content else ''}
+{clauses_section}
 
 Please create a comprehensive, well-structured proposal that includes:
 1. Executive Summary
