@@ -68,16 +68,45 @@ export const ProposalDetail = () => {
   };
 
   const handleExport = () => {
-    const blob = new Blob([proposal.content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${proposal.client_name.replace(/\s+/g, '_')}_Proposal.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success('Proposal exported successfully');
+    try {
+      const pdf = new jsPDF();
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      const maxWidth = pageWidth - (margin * 2);
+      
+      // Title
+      pdf.setFontSize(20);
+      pdf.setFont(undefined, 'bold');
+      pdf.text(`Proposal for ${proposal.client_name}`, margin, margin);
+      
+      // Metadata
+      pdf.setFontSize(10);
+      pdf.setFont(undefined, 'normal');
+      pdf.text(`Budget: ${proposal.budget_range}`, margin, margin + 10);
+      pdf.text(`Timeline: ${proposal.timeline}`, margin, margin + 15);
+      pdf.text(`Status: ${proposal.status}`, margin, margin + 20);
+      
+      // Content
+      pdf.setFontSize(11);
+      const lines = pdf.splitTextToSize(proposal.content, maxWidth);
+      let yPosition = margin + 30;
+      
+      lines.forEach((line) => {
+        if (yPosition > pageHeight - margin) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+        pdf.text(line, margin, yPosition);
+        yPosition += 6;
+      });
+      
+      pdf.save(`${proposal.client_name.replace(/\s+/g, '_')}_Proposal.pdf`);
+      toast.success('Proposal exported as PDF successfully');
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      toast.error('Failed to export PDF');
+    }
   };
 
   const getStatusBadgeClass = (status) => {
