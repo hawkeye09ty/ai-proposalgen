@@ -179,7 +179,7 @@ export const CreateProposal = () => {
                   <SelectValue placeholder="Select a template" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No Template</SelectItem>
+                  <SelectItem value="none">No Template</SelectItem>
                   {templates.map((template) => (
                     <SelectItem key={template.id} value={template.id}>
                       {template.name} - {template.description}
