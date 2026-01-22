@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, Sparkles } from 'lucide-react';
+import { ArrowLeft, Loader2, Sparkles, Upload, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ClauseSelector from '@/components/ClauseSelector';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -17,14 +18,32 @@ export const CreateProposal = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [uploadedFile, setUploadedFile] = useState(null);
   const [formData, setFormData] = useState({
     client_name: '',
     project_description: '',
     budget_range: '',
     timeline: '',
     selected_clauses: [],
-    additional_requirements: ''
+    additional_requirements: '',
+    template_id: '',
+    deal_value: ''
   });
+
+  useEffect(() => {
+    fetchTemplates();
+  }, []);
+
+  const fetchTemplates = async () => {
+    try {
+      const response = await axios.get(`${API}/templates`);
+      setTemplates(response.data);
+    } catch (error) {
+      console.error('Error fetching templates:', error);
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({
