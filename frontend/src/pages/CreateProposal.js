@@ -59,6 +59,37 @@ export const CreateProposal = () => {
     });
   };
 
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.pdf') && !file.name.endsWith('.txt')) {
+      toast.error('Only PDF and TXT files are supported');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const formDataObj = new FormData();
+      formDataObj.append('file', file);
+
+      const response = await axios.post(`${API}/upload-document`, formDataObj, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      setUploadedFile({
+        name: response.data.filename,
+        content: response.data.content
+      });
+      toast.success('File uploaded successfully');
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast.error('Failed to upload file');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleGenerateAndSave = async (e) => {
     e.preventDefault();
 
@@ -70,8 +101,14 @@ export const CreateProposal = () => {
     try {
       setGenerating(true);
       
+      const generatePayload = {
+        ...formData,
+        uploaded_file_content: uploadedFile?.content || null,
+        deal_value: formData.deal_value ? parseFloat(formData.deal_value) : null
+      };
+
       // AI generation can take time, so we increase the timeout to 120 seconds
-      const generateResponse = await axios.post(`${API}/generate-proposal`, formData, {
+      const generateResponse = await axios.post(`${API}/generate-proposal`, generatePayload, {
         timeout: 120000 // 120 seconds timeout for AI generation
       });
       const generatedContent = generateResponse.data.content;
@@ -85,7 +122,8 @@ export const CreateProposal = () => {
         timeline: formData.timeline,
         selected_clauses: formData.selected_clauses,
         content: generatedContent,
-        status: 'Draft'
+        status: 'Draft',
+        deal_value: formData.deal_value ? parseFloat(formData.deal_value) : null
       };
 
       const createResponse = await axios.post(`${API}/proposals`, proposalData);
