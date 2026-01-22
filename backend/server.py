@@ -12,6 +12,7 @@ import uuid
 from datetime import datetime, timezone
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 import io
+import PyPDF2
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -38,6 +39,15 @@ class ClauseCreate(BaseModel):
     category: str
     is_custom: bool = False
 
+class Template(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    industry: str
+    description: str
+    prompt_template: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 class Proposal(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -48,8 +58,10 @@ class Proposal(BaseModel):
     status: str = "Draft"
     content: Optional[str] = None
     selected_clauses: List[str] = []
+    deal_value: Optional[float] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    accepted_at: Optional[datetime] = None
 
 class ProposalCreate(BaseModel):
     client_name: str
@@ -57,6 +69,7 @@ class ProposalCreate(BaseModel):
     budget_range: str
     timeline: str
     selected_clauses: List[str] = []
+    deal_value: Optional[float] = None
 
 class ProposalUpdate(BaseModel):
     client_name: Optional[str] = None
@@ -66,6 +79,7 @@ class ProposalUpdate(BaseModel):
     status: Optional[str] = None
     content: Optional[str] = None
     selected_clauses: Optional[List[str]] = None
+    deal_value: Optional[float] = None
 
 class GenerateProposalRequest(BaseModel):
     client_name: str
@@ -74,10 +88,33 @@ class GenerateProposalRequest(BaseModel):
     timeline: str
     selected_clauses: List[str] = []
     additional_requirements: Optional[str] = None
+    template_id: Optional[str] = None
+    uploaded_file_content: Optional[str] = None
 
 @api_router.get("/")
 async def root():
     return {"message": "Proposal Builder API"}
+
+@api_router.post("/upload-document")
+async def upload_document(file: UploadFile = File(...)):
+    try:
+        content = await file.read()
+        
+        if file.filename.endswith('.pdf'):
+            pdf_file = io.BytesIO(content)
+            pdf_reader = PyPDF2.PdfReader(pdf_file)
+            text = ""
+            for page in pdf_reader.pages:
+                text += page.extract_text()
+        elif file.filename.endswith('.txt'):
+            text = content.decode('utf-8')
+        else:
+            raise HTTPException(status_code=400, detail="Only PDF and TXT files are supported")
+        
+        return {"content": text, "filename": file.filename}
+    except Exception as e:
+        logging.error(f"Error processing file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to process file: {str(e)}")
 
 @api_router.post("/clauses", response_model=Clause)
 async def create_clause(input: ClauseCreate):
@@ -103,6 +140,14 @@ async def delete_clause(clause_id: str):
         raise HTTPException(status_code=404, detail="Clause not found")
     return {"message": "Clause deleted successfully"}
 
+@api_router.get("/templates", response_model=List[Template])
+async def get_templates():
+    templates = await db.templates.find({}, {"_id": 0}).to_list(1000)
+    for template in templates:
+        if isinstance(template['created_at'], str):
+            template['created_at'] = datetime.fromisoformat(template['created_at'])
+    return templates
+
 @api_router.post("/proposals", response_model=Proposal)
 async def create_proposal(input: ProposalCreate):
     proposal_dict = input.model_dump()
@@ -110,6 +155,8 @@ async def create_proposal(input: ProposalCreate):
     doc = proposal_obj.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
+    if doc.get('accepted_at'):
+        doc['accepted_at'] = doc['accepted_at'].isoformat()
     await db.proposals.insert_one(doc)
     return proposal_obj
 
@@ -122,6 +169,8 @@ async def get_proposals(status: Optional[str] = None):
             proposal['created_at'] = datetime.fromisoformat(proposal['created_at'])
         if isinstance(proposal['updated_at'], str):
             proposal['updated_at'] = datetime.fromisoformat(proposal['updated_at'])
+        if proposal.get('accepted_at') and isinstance(proposal['accepted_at'], str):
+            proposal['accepted_at'] = datetime.fromisoformat(proposal['accepted_at'])
     return proposals
 
 @api_router.get("/proposals/{proposal_id}", response_model=Proposal)
@@ -133,12 +182,17 @@ async def get_proposal(proposal_id: str):
         proposal['created_at'] = datetime.fromisoformat(proposal['created_at'])
     if isinstance(proposal['updated_at'], str):
         proposal['updated_at'] = datetime.fromisoformat(proposal['updated_at'])
+    if proposal.get('accepted_at') and isinstance(proposal['accepted_at'], str):
+        proposal['accepted_at'] = datetime.fromisoformat(proposal['accepted_at'])
     return proposal
 
 @api_router.patch("/proposals/{proposal_id}", response_model=Proposal)
 async def update_proposal(proposal_id: str, update_data: ProposalUpdate):
     update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
     update_dict['updated_at'] = datetime.now(timezone.utc).isoformat()
+    
+    if update_dict.get('status') == 'Accepted':
+        update_dict['accepted_at'] = datetime.now(timezone.utc).isoformat()
     
     result = await db.proposals.update_one(
         {"id": proposal_id},
@@ -153,6 +207,8 @@ async def update_proposal(proposal_id: str, update_data: ProposalUpdate):
         updated_proposal['created_at'] = datetime.fromisoformat(updated_proposal['created_at'])
     if isinstance(updated_proposal['updated_at'], str):
         updated_proposal['updated_at'] = datetime.fromisoformat(updated_proposal['updated_at'])
+    if updated_proposal.get('accepted_at') and isinstance(updated_proposal['accepted_at'], str):
+        updated_proposal['accepted_at'] = datetime.fromisoformat(updated_proposal['accepted_at'])
     return updated_proposal
 
 @api_router.delete("/proposals/{proposal_id}")
@@ -177,6 +233,16 @@ async def generate_proposal(request: GenerateProposalRequest):
             ).to_list(100)
             clauses_content = "\n\n".join([f"**{c['title']}**\n{c['content']}" for c in clauses])
         
+        template_guidance = ""
+        if request.template_id:
+            template = await db.templates.find_one({"id": request.template_id}, {"_id": 0})
+            if template:
+                template_guidance = f"\n\nIndustry Focus: {template['industry']}\n{template['prompt_template']}"
+        
+        file_content_section = ""
+        if request.uploaded_file_content:
+            file_content_section = f"\n\nRequirements from uploaded document:\n{request.uploaded_file_content[:3000]}"
+        
         additional_req = f'Additional Requirements: {request.additional_requirements}' if request.additional_requirements else ''
         clauses_section = f'Include these clauses in the proposal:\n{clauses_content}' if clauses_content else ''
         
@@ -188,6 +254,8 @@ Budget Range: {request.budget_range}
 Timeline: {request.timeline}
 
 {additional_req}
+{file_content_section}
+{template_guidance}
 
 {clauses_section}
 
@@ -233,6 +301,44 @@ async def get_stats():
         "sent": sent,
         "accepted": accepted,
         "rejected": rejected
+    }
+
+@api_router.get("/analytics")
+async def get_analytics():
+    proposals = await db.proposals.find({}, {"_id": 0}).to_list(1000)
+    
+    total = len(proposals)
+    accepted = len([p for p in proposals if p['status'] == 'Accepted'])
+    acceptance_rate = (accepted / total * 100) if total > 0 else 0
+    
+    proposals_with_value = [p for p in proposals if p.get('deal_value')]
+    avg_deal_size = sum([p['deal_value'] for p in proposals_with_value]) / len(proposals_with_value) if proposals_with_value else 0
+    
+    accepted_proposals = [p for p in proposals if p['status'] == 'Accepted' and p.get('accepted_at')]
+    time_to_close_days = []
+    for p in accepted_proposals:
+        created = datetime.fromisoformat(p['created_at']) if isinstance(p['created_at'], str) else p['created_at']
+        accepted = datetime.fromisoformat(p['accepted_at']) if isinstance(p['accepted_at'], str) else p['accepted_at']
+        days = (accepted - created).days
+        time_to_close_days.append(days)
+    
+    avg_time_to_close = sum(time_to_close_days) / len(time_to_close_days) if time_to_close_days else 0
+    
+    status_distribution = {
+        "Draft": len([p for p in proposals if p['status'] == 'Draft']),
+        "Pending Review": len([p for p in proposals if p['status'] == 'Pending Review']),
+        "Sent": len([p for p in proposals if p['status'] == 'Sent']),
+        "Accepted": accepted,
+        "Rejected": len([p for p in proposals if p['status'] == 'Rejected'])
+    }
+    
+    return {
+        "acceptance_rate": round(acceptance_rate, 1),
+        "avg_deal_size": round(avg_deal_size, 2),
+        "avg_time_to_close": round(avg_time_to_close, 1),
+        "total_proposals": total,
+        "status_distribution": status_distribution,
+        "total_revenue": sum([p['deal_value'] for p in proposals_with_value])
     }
 
 app.add_middleware(
@@ -308,7 +414,39 @@ async def startup_db():
         }
     ]
     
-    existing_count = await db.clauses.count_documents({})
-    if existing_count == 0:
+    existing_clauses = await db.clauses.count_documents({})
+    if existing_clauses == 0:
         await db.clauses.insert_many(default_clauses)
         logger.info("Default clauses seeded successfully")
+    
+    default_templates = [
+        {
+            "id": str(uuid.uuid4()),
+            "name": "Technology Solutions",
+            "industry": "Technology",
+            "description": "For software development, IT consulting, and tech implementation projects",
+            "prompt_template": "Focus on technical specifications, scalability, security measures, technology stack, development methodology (Agile/Scrum), testing protocols, deployment strategy, and ongoing maintenance. Emphasize innovation, efficiency gains, and ROI through technology.",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "name": "Consulting Services",
+            "industry": "Consulting",
+            "description": "For business strategy, management consulting, and advisory services",
+            "prompt_template": "Emphasize strategic value, industry expertise, proven methodologies, change management approach, stakeholder engagement, measurable outcomes, and knowledge transfer. Include case studies or similar client success stories. Focus on business transformation and strategic alignment.",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "name": "Creative & Design",
+            "industry": "Creative",
+            "description": "For branding, marketing, design, and creative production projects",
+            "prompt_template": "Highlight creative vision, brand strategy, design process, creative team credentials, portfolio examples, mood boards, creative deliverables, revision rounds, and brand guidelines. Emphasize storytelling, audience engagement, and brand differentiation.",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+    ]
+    
+    existing_templates = await db.templates.count_documents({})
+    if existing_templates == 0:
+        await db.templates.insert_many(default_templates)
+        logger.info("Default templates seeded successfully")
