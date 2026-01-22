@@ -1,0 +1,150 @@
+{
+  "identity": {
+    "name": "E1",
+    "role": "The Anti-AI Designer",
+    "mission": "Create a proposal builder that feels like a premium architectural tool, not a generic SaaS.",
+    "principles": [
+      "Fusion over Imitation: Mix Swiss Print Design with Modern SaaS Utility.",
+      "Content is King: The Proposal Document is the Hero. The UI recedes.",
+      "Density with Breath: High-density data grids for the dashboard, luxurious whitespace for the editor.",
+      "Tactile Depth: Use subtle shadows and borders to create a 'paper-on-desk' feel."
+    ]
+  },
+  "typography": {
+    "primary_font": "Outfit",
+    "secondary_font": "DM Sans",
+    "mono_font": "JetBrains Mono",
+    "import_url": "https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;500;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap",
+    "usage": {
+      "headings": "font-['Outfit'] tracking-tight font-semibold text-slate-900",
+      "body": "font-['DM_Sans'] text-slate-600 leading-relaxed",
+      "ui_labels": "font-['Outfit'] text-xs font-medium tracking-wide uppercase text-slate-500",
+      "code": "font-['JetBrains_Mono'] text-sm"
+    },
+    "scale": {
+      "h1": "text-4xl md:text-5xl font-bold tracking-tight",
+      "h2": "text-3xl font-semibold tracking-tight",
+      "h3": "text-2xl font-medium",
+      "body_lg": "text-lg leading-7",
+      "body_base": "text-base leading-6",
+      "caption": "text-sm text-slate-500"
+    }
+  },
+  "colors": {
+    "palette": {
+      "primary": {
+        "DEFAULT": "#0F172A",
+        "foreground": "#F8FAFC",
+        "hover": "#1E293B"
+      },
+      "secondary": {
+        "DEFAULT": "#F1F5F9",
+        "foreground": "#0F172A",
+        "hover": "#E2E8F0"
+      },
+      "accent": {
+        "DEFAULT": "#3B82F6",
+        "foreground": "#FFFFFF",
+        "soft": "#EFF6FF"
+      },
+      "success": {
+        "DEFAULT": "#10B981",
+        "soft": "#ECFDF5"
+      },
+      "background": "#F8FAFC",
+      "surface": "#FFFFFF",
+      "border": "#E2E8F0",
+      "muted": "#64748B"
+    },
+    "semantic": {
+      "dashboard_bg": "bg-slate-50",
+      "card_bg": "bg-white",
+      "sidebar_bg": "bg-slate-900",
+      "sidebar_text": "text-slate-300",
+      "sidebar_active": "bg-slate-800 text-white",
+      "status_draft": "bg-slate-100 text-slate-700 border-slate-200",
+      "status_pending": "bg-amber-50 text-amber-700 border-amber-200",
+      "status_sent": "bg-blue-50 text-blue-700 border-blue-200",
+      "status_accepted": "bg-emerald-50 text-emerald-700 border-emerald-200",
+      "status_rejected": "bg-red-50 text-red-700 border-red-200"
+    }
+  },
+  "layout": {
+    "spacing": {
+      "container_padding": "p-6 md:p-8 lg:p-12",
+      "section_gap": "gap-8",
+      "item_gap": "gap-4"
+    },
+    "grid_systems": {
+      "dashboard": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+      "proposal_list": "grid grid-cols-1 gap-4",
+      "editor": "grid grid-cols-1 lg:grid-cols-12 gap-0 h-screen overflow-hidden"
+    },
+    "containers": {
+      "main": "max-w-7xl mx-auto w-full",
+      "narrow": "max-w-3xl mx-auto w-full"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-slate-900 text-white hover:bg-slate-800 shadow-sm hover:shadow-md transition-all duration-200 rounded-md px-6 py-2.5 font-medium",
+      "secondary": "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all duration-200 rounded-md px-6 py-2.5 font-medium",
+      "ghost": "bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 rounded-md px-4 py-2 transition-colors",
+      "destructive": "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-md px-6 py-2.5 font-medium"
+    },
+    "cards": {
+      "base": "bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300",
+      "interactive": "cursor-pointer hover:border-blue-300 hover:ring-1 hover:ring-blue-100",
+      "flat": "bg-slate-50 border border-slate-200 rounded-lg"
+    },
+    "inputs": {
+      "base": "flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+      "label": "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 mb-2 block text-slate-700"
+    },
+    "status_badge": "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+  },
+  "visual_enhancers": {
+    "glassmorphism": "bg-white/80 backdrop-blur-md border-b border-slate-200/50",
+    "shadows": {
+      "soft": "shadow-[0_2px_8px_rgba(0,0,0,0.04)]",
+      "float": "shadow-[0_8px_24px_rgba(0,0,0,0.08)]",
+      "inner": "shadow-inner"
+    },
+    "borders": {
+      "subtle": "border border-slate-100",
+      "default": "border border-slate-200",
+      "active": "border-blue-500"
+    }
+  },
+  "assets": {
+    "images": {
+      "login_bg": "https://images.pexels.com/photos/3754595/pexels-photo-3754595.jpeg",
+      "dashboard_avatar": "https://images.pexels.com/photos/8124232/pexels-photo-8124232.jpeg",
+      "proposal_cover_abstract": "https://images.pexels.com/photos/28428584/pexels-photo-28428584.jpeg",
+      "placeholder_logo": "https://via.placeholder.com/40?text=Logo"
+    },
+    "icons": {
+      "library": "lucide-react",
+      "style": "stroke-width={1.5} size={20}"
+    }
+  },
+  "motion": {
+    "transitions": "transition-all duration-200 ease-in-out",
+    "hover_lift": "hover:-translate-y-0.5",
+    "page_enter": "animate-in fade-in slide-in-from-bottom-4 duration-500"
+  },
+  "universal_guidelines": [
+    "Do not use gradients for backgrounds. Use solid colors or subtle noise textures.",
+    "Avoid 'Inter' font for headings. Use 'Outfit' to give it character.",
+    "Never center text in the proposal editor unless it is a specific title style.",
+    "Use 'sonner' for all toast notifications.",
+    "All interactive elements must have a 'data-testid'.",
+    "Dashboard grids must be dense (Bento style), not sparse.",
+    "The 'Create Proposal' flow should feel like a conversation or a wizard, not a tax form."
+  ],
+  "instructions_to_main_agent": {
+    "setup": "Install fonts by adding the import URL to index.css. Configure tailwind.config.js to use the custom font families.",
+    "layout_strategy": "For the Dashboard, use a Sidebar Layout (Fixed Left Sidebar, Scrollable Main Content). For the Proposal Editor, use a Split View (Left: Controls/AI, Right: Preview).",
+    "component_overrides": "Customize Shadcn components to match the 'rounded-md' and 'border-slate-200' aesthetic. Remove default heavy shadows."
+  }
+}
