@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FileText, Plus, Library } from 'lucide-react';
+import { LayoutDashboard, FileText, Plus, Library, BarChart3 } from 'lucide-react';
 
 export const Sidebar = () => {
   const location = useLocation();
@@ -8,6 +8,7 @@ export const Sidebar = () => {
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/create', icon: Plus, label: 'Create Proposal' },
     { path: '/clauses', icon: Library, label: 'Clause Library' },
+    { path: '/analytics', icon: BarChart3, label: 'Analytics' },
   ];
 
   const isActive = (path) => location.pathname === path;
