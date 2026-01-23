@@ -366,6 +366,53 @@ export const ProposalDetail = () => {
           </Card>
         </div>
 
+        {emailLogs.length > 0 && (
+          <Card className="border-slate-200 mb-6">
+            <CardHeader>
+              <CardTitle className="font-outfit text-xl font-semibold text-slate-900">
+                Email Tracking
+              </CardTitle>
+              <CardDescription>Monitor email engagement with your client</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {emailLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200"
+                    data-testid={`email-log-${log.id}`}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-1">
+                        <Mail className="h-4 w-4 text-slate-600" />
+                        <span className="font-medium text-slate-900">{log.recipient_email}</span>
+                        <span className="text-xs text-slate-500">
+                          {new Date(log.sent_at).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-600">{log.subject}</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className={`flex items-center gap-2 ${log.opened ? 'text-emerald-600' : 'text-slate-400'}`}>
+                        <Eye className="h-4 w-4" />
+                        <span className="text-xs font-medium">
+                          {log.opened ? 'Opened' : 'Not opened'}
+                        </span>
+                      </div>
+                      <div className={`flex items-center gap-2 ${log.clicked ? 'text-blue-600' : 'text-slate-400'}`}>
+                        <MousePointerClick className="h-4 w-4" />
+                        <span className="text-xs font-medium">
+                          {log.clicked ? 'Clicked' : 'Not clicked'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card className="border-slate-200">
           <CardContent className="p-8">
             {editing ? (
