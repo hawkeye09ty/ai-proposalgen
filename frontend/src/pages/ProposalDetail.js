@@ -34,6 +34,7 @@ export const ProposalDetail = () => {
 
   useEffect(() => {
     fetchProposal();
+    fetchEmailLogs();
   }, [id]);
 
   const fetchProposal = async () => {
@@ -48,6 +49,15 @@ export const ProposalDetail = () => {
       navigate('/dashboard');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchEmailLogs = async () => {
+    try {
+      const response = await axios.get(`${API}/email-logs/${id}`);
+      setEmailLogs(response.data);
+    } catch (error) {
+      console.error('Error fetching email logs:', error);
     }
   };
 
