@@ -222,6 +222,70 @@ export const ProposalDetail = () => {
 
             {!editing ? (
               <>
+                <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-blue-600 text-white hover:bg-blue-700" data-testid="send-email-button">
+                      <Mail className="h-4 w-4 mr-2" />
+                      Send Email
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle className="font-outfit text-2xl font-semibold">Send Proposal via Email</DialogTitle>
+                      <DialogDescription>
+                        Send this proposal directly to your client with email tracking
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div>
+                        <Label htmlFor="recipient_email">Recipient Email *</Label>
+                        <Input
+                          id="recipient_email"
+                          type="email"
+                          placeholder="client@example.com"
+                          value={emailForm.recipient_email}
+                          onChange={(e) => setEmailForm({ ...emailForm, recipient_email: e.target.value })}
+                          className="border-slate-200"
+                          data-testid="email-recipient-input"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="custom_message">Custom Message (Optional)</Label>
+                        <Textarea
+                          id="custom_message"
+                          placeholder="Add a personalized message..."
+                          value={emailForm.custom_message}
+                          onChange={(e) => setEmailForm({ ...emailForm, custom_message: e.target.value })}
+                          className="border-slate-200"
+                          data-testid="email-message-input"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleSendEmail}
+                        disabled={sending}
+                        className="bg-blue-600 text-white hover:bg-blue-700"
+                        data-testid="confirm-send-email"
+                      >
+                        {sending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="h-4 w-4 mr-2" />
+                            Send Email
+                          </>
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
                 <Button
                   variant="outline"
                   onClick={() => setEditing(true)}
@@ -236,7 +300,7 @@ export const ProposalDetail = () => {
                   data-testid="export-button"
                 >
                   <FileDown className="h-4 w-4 mr-2" />
-                  Export
+                  Export PDF
                 </Button>
               </>
             ) : (
