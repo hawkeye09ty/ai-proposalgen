@@ -24,6 +24,13 @@ export const ProposalDetail = () => {
   const [editing, setEditing] = useState(false);
   const [editedContent, setEditedContent] = useState('');
   const [saving, setSaving] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [emailLogs, setEmailLogs] = useState([]);
+  const [emailForm, setEmailForm] = useState({
+    recipient_email: '',
+    custom_message: ''
+  });
 
   useEffect(() => {
     fetchProposal();
