@@ -97,6 +97,24 @@ class GenerateProposalRequest(BaseModel):
     template_id: Optional[str] = None
     uploaded_file_content: Optional[str] = None
 
+class EmailLog(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    proposal_id: str
+    recipient_email: str
+    subject: str
+    sent_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    opened: bool = False
+    opened_at: Optional[datetime] = None
+    clicked: bool = False
+    clicked_at: Optional[datetime] = None
+    resend_email_id: Optional[str] = None
+
+class SendEmailRequest(BaseModel):
+    proposal_id: str
+    recipient_email: EmailStr
+    custom_message: Optional[str] = None
+
 @api_router.get("/")
 async def root():
     return {"message": "Proposal Builder API"}
