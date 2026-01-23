@@ -129,6 +129,33 @@ export const ProposalDetail = () => {
     }
   };
 
+  const handleSendEmail = async () => {
+    if (!emailForm.recipient_email) {
+      toast.error('Please enter recipient email');
+      return;
+    }
+
+    try {
+      setSending(true);
+      await axios.post(`${API}/send-email`, {
+        proposal_id: id,
+        recipient_email: emailForm.recipient_email,
+        custom_message: emailForm.custom_message || null
+      });
+      
+      toast.success(`Proposal sent to ${emailForm.recipient_email}`);
+      setEmailDialogOpen(false);
+      setEmailForm({ recipient_email: '', custom_message: '' });
+      fetchProposal(); // Refresh to update status
+      fetchEmailLogs(); // Refresh email logs
+    } catch (error) {
+      console.error('Error sending email:', error);
+      toast.error(error.response?.data?.detail || 'Failed to send email');
+    } finally {
+      setSending(false);
+    }
+  };
+
   const getStatusBadgeClass = (status) => {
     const classes = {
       'Draft': 'bg-slate-100 text-slate-700 border-slate-200',
