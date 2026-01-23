@@ -309,6 +309,182 @@ Use professional business language and maintain a persuasive yet informative ton
         logging.error(f"Error generating proposal: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to generate proposal: {str(e)}")
 
+@api_router.post("/send-email")
+async def send_email(request: SendEmailRequest):
+    try:
+        # Get proposal
+        proposal = await db.proposals.find_one({"id": request.proposal_id}, {"_id": 0})
+        if not proposal:
+            raise HTTPException(status_code=404, detail="Proposal not found")
+        
+        # Create email log entry
+        email_log_id = str(uuid.uuid4())
+        tracking_url = f"{os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:8001')}/api"
+        
+        # HTML email template
+        custom_msg = request.custom_message if request.custom_message else "We're pleased to share our proposal for your consideration."
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: #0F172A; color: white; padding: 20px; text-align: center; }}
+                .content {{ background: #f8f9fa; padding: 30px; }}
+                .proposal {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+                .metadata {{ color: #666; font-size: 14px; margin: 10px 0; }}
+                .button {{ background: #0F172A; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 20px 0; }}
+                .footer {{ text-align: center; color: #666; font-size: 12px; padding: 20px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Proposal for {proposal['client_name']}</h1>
+                </div>
+                <div class="content">
+                    <p>{custom_msg}</p>
+                    
+                    <div class="proposal">
+                        <h2>Proposal Details</h2>
+                        <div class="metadata">
+                            <strong>Budget Range:</strong> {proposal['budget_range']}<br>
+                            <strong>Timeline:</strong> {proposal['timeline']}<br>
+                            <strong>Status:</strong> {proposal['status']}
+                        </div>
+                        
+                        <div style="white-space: pre-wrap; margin-top: 20px;">
+                            {proposal.get('content', 'Proposal content not available')[:2000]}...
+                        </div>
+                    </div>
+                    
+                    <a href="{tracking_url}/track-click/{email_log_id}" class="button">View Full Proposal</a>
+                    
+                    <p style="color: #666; font-size: 14px;">
+                        If you have any questions or would like to discuss this proposal further, please don't hesitate to reach out.
+                    </p>
+                </div>
+                <div class="footer">
+                    <p>This is an automated email from ProposalAI</p>
+                </div>
+            </div>
+            <img src="{tracking_url}/track-open/{email_log_id}" width="1" height="1" alt="" />
+        </body>
+        </html>
+        """
+        
+        subject = f"Proposal for {proposal['client_name']}"
+        
+        params = {
+            "from": SENDER_EMAIL,
+            "to": [request.recipient_email],
+            "subject": subject,
+            "html": html_content
+        }
+        
+        # Send email
+        email = await asyncio.to_thread(resend.Emails.send, params)
+        
+        # Save email log
+        email_log = EmailLog(
+            id=email_log_id,
+            proposal_id=request.proposal_id,
+            recipient_email=request.recipient_email,
+            subject=subject,
+            resend_email_id=email.get("id")
+        )
+        
+        doc = email_log.model_dump()
+        doc['sent_at'] = doc['sent_at'].isoformat()
+        if doc.get('opened_at'):
+            doc['opened_at'] = doc['opened_at'].isoformat()
+        if doc.get('clicked_at'):
+            doc['clicked_at'] = doc['clicked_at'].isoformat()
+        
+        await db.email_logs.insert_one(doc)
+        
+        # Update proposal status
+        await db.proposals.update_one(
+            {"id": request.proposal_id},
+            {"$set": {"status": "Sent", "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        
+        return {
+            "status": "success",
+            "message": f"Email sent to {request.recipient_email}",
+            "email_log_id": email_log_id
+        }
+    except Exception as e:
+        logging.error(f"Failed to send email: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
+
+@api_router.get("/track-open/{email_log_id}")
+async def track_email_open(email_log_id: str):
+    try:
+        # Update email log
+        result = await db.email_logs.update_one(
+            {"id": email_log_id, "opened": False},
+            {"$set": {
+                "opened": True,
+                "opened_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        
+        # Return 1x1 transparent GIF
+        gif_bytes = bytes.fromhex('47494638396101000100800000000000ffffff21f90401000000002c00000000010001000002024401003b')
+        return Response(content=gif_bytes, media_type="image/gif")
+    except Exception as e:
+        logging.error(f"Error tracking email open: {str(e)}")
+        return Response(content=gif_bytes, media_type="image/gif")
+
+@api_router.get("/track-click/{email_log_id}")
+async def track_email_click(email_log_id: str):
+    try:
+        # Update email log
+        await db.email_logs.update_one(
+            {"id": email_log_id, "clicked": False},
+            {"$set": {
+                "clicked": True,
+                "clicked_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        
+        # Get proposal ID from email log
+        email_log = await db.email_logs.find_one({"id": email_log_id}, {"_id": 0})
+        
+        # Redirect to frontend proposal page
+        frontend_url = os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:3000').replace(':8001', ':3000')
+        return Response(
+            status_code=302,
+            headers={"Location": f"{frontend_url}/proposals/{email_log['proposal_id']}"}
+        )
+    except Exception as e:
+        logging.error(f"Error tracking email click: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to track click")
+
+@api_router.get("/email-logs/{proposal_id}")
+async def get_email_logs(proposal_id: str):
+    try:
+        email_logs = await db.email_logs.find(
+            {"proposal_id": proposal_id},
+            {"_id": 0}
+        ).sort("sent_at", -1).to_list(100)
+        
+        for log in email_logs:
+            if isinstance(log.get('sent_at'), str):
+                log['sent_at'] = datetime.fromisoformat(log['sent_at'])
+            if log.get('opened_at') and isinstance(log['opened_at'], str):
+                log['opened_at'] = datetime.fromisoformat(log['opened_at'])
+            if log.get('clicked_at') and isinstance(log['clicked_at'], str):
+                log['clicked_at'] = datetime.fromisoformat(log['clicked_at'])
+        
+        return email_logs
+    except Exception as e:
+        logging.error(f"Error fetching email logs: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch email logs")
+
 @api_router.get("/stats")
 async def get_stats():
     total = await db.proposals.count_documents({})
