@@ -1,0 +1,183 @@
+<analysis>**original_problem_statement:**
+The user wants to build a ProposalAI application.
+
+Initial Request:
+- Build a proposal builder app using a verified LLM model.
+- The app should take inputs like client names and regular clauses.
+- It must include a dashboard to show the status of proposals (Draft, Pending Review, Sent, Accepted, Rejected) for internal teams.
+- Use OpenAI GPT-5.2 with the Emergent LLM key.
+- The app should have a professional, modern, and minimal design.
+- Inputs should be a combination of form fields and document uploads.
+- The app should have pre-defined, customizable clause templates and store commonly used clauses.
+
+Subsequent Feature Requests:
+1.  **Enhancement 1**: Implement file upload for raw requirement documents, PDF export, proposal templates, and an analytics dashboard to track deal size and time-to-close.
+2.  **Enhancement 2**: Add email integration (using Resend) to send proposals directly to clients and track opens/clicks.
+3.  **Enhancement 3 (Current Task)**: Integrate with Brevo and Google Docs.
+    - **Trigger**: When a Brevo opportunity reaches the proposal stage (via API polling and webhooks).
+    - **Action**: Automatically create a Google Doc from a template, populating it with opportunity data.
+    - **Workflow**:
+        - Share the doc with the team for editing.
+        - Track approval via a specific comment (APPROVED) and support multiple approval stages.
+        - Upon approval, update the Brevo opportunity stage, generate a PDF, and attach it to the opportunity.
+    - **Additional UI/UX**:
+        - Add a Settings tab for application-wide UI/UX configuration.
+        - Allow editing of proposal drafts and other fields directly from the dashboard.
+    - The user provided a sample proposal PDF as a template for the Google Docs structure.
+
+**User's preferred language**: English
+
+**what currently exists?**
+A full-stack ProposalAI application has been built with a React frontend and FastAPI backend using a MongoDB database.
+-   **Backend**: Endpoints are implemented for CRUD operations on proposals, clauses, and templates. It includes AI-powered proposal generation using OpenAI GPT-5.2, file upload handling (), an analytics endpoint, and email sending functionality via the Resend library. Default clauses and templates are seeded on startup.
+-   **Frontend**: A responsive UI with a sidebar for navigation. It features:
+    -   A **Dashboard** showing proposal stats and a list of all proposals.
+    -   A **Create Proposal** page with fields for client info, template selection, and file upload.
+    -   A **Proposal Detail** page for viewing proposal content, updating status, exporting to PDF (), and sending via email.
+    -   An **Analytics** page displaying charts for proposal metrics ().
+    -   A **Clause Library** for managing reusable clauses.
+
+**Last working item**:
+-   Last item agent was working: The agent was preparing to implement the Brevo and Google Docs automation workflow. It had just fetched the integration playbooks for both services and analyzed the user-provided PDF template to understand the required document structure. Before starting implementation, the agent decided its immediate next step should be to acquire the missing  from the user to complete the previously built email feature.
+-   Status: NOT STARTED
+-   Agent Testing Done: N
+-   Which testing method agent to use? both
+-   User Testing Done: N
+
+**All Pending/In progress Issue list**:
+-   Issue 1: Email feature is not functional.
+    -   Priority: P0
+    -   Detail:
+        -   **Attempted fixes**: The backend and frontend code for sending emails via Resend has been implemented, but it is not functional because it requires an API key.
+        -   **Next debug checklist**: The agent needs to use the  tool to request the  from the user. Once received, the key must be added to  and the backend service must be restarted.
+        -   **Why fix this issue and what will be achieved with the fix?**: This will complete the email integration feature, allowing users to send proposals directly from the application.
+        -   **Status**: BLOCKED
+        -   **Is recurring issue?**: N
+        -   **Should Test frontend/backend/both after fix?**: Both
+        -   **Blocked on other issue**: N/A
+
+**In progress Task List**:
+There are no tasks currently in progress.
+
+**Upcoming and Future Tasks**
+**Upcoming Tasks:**
+-   **Task 1 (P0): Implement Brevo + Google Docs Automation Workflow**
+    -   **Phase 1: Setup & UI**:
+        -   Add a Settings tab to the  component and create a corresponding  page component.
+        -   Implement the ability to edit proposal fields directly from the dashboard/proposal list.
+    -   **Phase 2: Backend Integration**:
+        -   Integrate the Brevo API using the fetched playbook. Implement a background task or cron job in  to poll the Brevo API every 5 minutes for opportunities in the proposal stage.
+        -   Create a new webhook endpoint in  to receive real-time updates from Brevo.
+        -   Integrate the Google Docs API using the service account credentials (to be provided by the user).
+    -   **Phase 3: Core Logic**:
+        -   Implement the logic to create a new Google Doc from a template when a Brevo trigger is received.
+        -   Populate the Google Doc with data from the Brevo opportunity.
+        -   Implement the approval workflow, including sharing the document and listening for APPROVED comments.
+        -   Implement the finalization logic: update the Brevo opportunity, generate a PDF from the Google Doc, and attach it to the Brevo record.
+    -   **Blocked on**: User to provide Brevo API key and Google Workspace service account credentials.
+
+**Completed work in this session**
+-   **Initial App Setup**:
+    -   Full-stack application with a dashboard, proposal creation, and detail views.
+    -   OpenAI GPT-5.2 integration for proposal content generation.
+-   **Feature Enhancements**:
+    -   **File Upload**: Added file upload capability on the  page to parse  requirement documents ().
+    -   **Proposal Templates**: Implemented template selection and management (, ).
+    -   **Analytics Dashboard**: Created an analytics page with charts to visualize proposal data ().
+    -   **PDF Export**: Added functionality to export proposals as PDF files on the  page.
+-   **Email Integration**:
+    -   Integrated the Resend API for sending proposals via email.
+    -   Added UI elements (button, dialog) on the  page.
+    -   Created backend endpoints for sending emails and tracking opens/clicks ().
+
+**Earlier issues found/mentioned but not fixed**
+None. All previously identified issues (CORS, React infinite loop, API timeout) were successfully debugged and resolved.
+
+**Known issue recurrence from previous fork**
+N/A
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+-   **Frontend**: React, React Router, Axios, Chart.js, JSPDF
+-   **Backend**: FastAPI, Pydantic, Motor (async MongoDB driver)
+-   **Database**: MongoDB
+-   **Integrations**:  (for OpenAI), Resend, PyPDF2
+
+**key DB schema**
+-   **proposals**: 
+-   **clauses**: 
+-   **templates**: 
+-   **email_tracking**: 
+
+**changes in tech stack**
+No changes to the core tech stack. The following libraries were added:
+-   **Backend**: , , 
+-   **Frontend**: , , , 
+
+**All files of reference**
+-   : Contains all backend logic, including APIs for proposals, analytics, and email.
+-   : Stores environment variables, including a placeholder for .
+-   : UI for creating proposals, with file upload and template selection.
+-   : UI for viewing a proposal, exporting to PDF, and sending via email.
+-   : New page for the analytics dashboard.
+-   : Contains routing for the new  page.
+-   : Navigation menu.
+
+**Areas that need refactoring**:
+-   The  file is growing too large and contains all models, routes, and business logic. It should be refactored into a modular structure (e.g., separate files for routes, models, and services) to improve maintainability, especially before adding the complex Brevo/Google Docs logic.
+
+**key api endpoints**
+-   : Generates proposal content using AI.
+-   : Sends the proposal via email.
+-   : Tracking pixel endpoint for email opens.
+-   : Fetches data for the analytics dashboard.
+-   : Fetches available proposal templates.
+-   Standard CRUD endpoints for  and .
+
+**Critical Info for New Agent**
+-   The immediate next step is a multi-part integration with Brevo and Google Docs. You have the integration playbooks.
+-   **You must first ask the user for three sets of credentials**:
+    1.   to fix the existing email feature.
+    2.   for the new automation.
+    3.  Google Workspace  (as a JSON file) for Google Docs integration.
+-   The  file is a monolith. Consider refactoring it into smaller, more manageable modules before adding the new integration logic.
+-   The user has also requested a new Settings page and the ability to edit proposals from the dashboard; these should be implemented as part of the next feature set.
+
+**documents and test reports created in this job**
+-   
+-   
+-   
+-   
+
+**Last 10 User Messages and any pending HUMAN messages**
+1.  **User**: I'll implement email integration with tracking for direct proposal sending.
+2.  **User**: When Brevo opportunities reach the proposal stage, automatically create Google Docs from templates, populate with data, manage an approval workflow, and update Brevo. Add an editable dashboard and a settings tab. Use both polling and webhooks. *[User also uploaded a PDF template for the Google Doc structure.]*
+3.  **Agent**: Acknowledged the request and confirmed analysis of the provided PDF template.
+4.  **Agent**: Fetched integration playbooks for Brevo and Google Docs.
+5.  **Agent**: Decided the next step is to ask the user for the missing  before starting the Brevo/Google Docs implementation. This action is pending.
+
+**Project Health Check:**
+-   **Broken**: The Send Email feature is non-functional due to the missing .
+-   **Mocked**: None.
+
+**3rd Party Integrations**
+-   **OpenAI GPT-5.2** — uses Emergent LLM Key.
+-   **Resend (Email)** — requires User API Key.
+-   **Brevo (CRM)** — requires User API Key.
+-   **Google Docs** — requires User Service Account.
+
+**Testing status**
+-   Testing agent used after significant changes: YES
+-   Troubleshoot agent used after agent stuck in loop: NO
+-   Test files created: []
+-   Known regressions: []
+
+**Credentials to test flow:**
+-   ****: Needed for email functionality.
+-   ****: Will be needed for the upcoming Brevo integration.
+-   **Google Service Account JSON**: Will be needed for the upcoming Google Docs integration.
+
+**What agent forgot to execute**
+The agent correctly identified the need to acquire the  from the user to complete a feature but ended the session just before executing the  call. The next agent must prioritize this action.</analysis>
