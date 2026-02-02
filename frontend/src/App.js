@@ -6,6 +6,7 @@ import CreateProposal from '@/pages/CreateProposal';
 import ProposalDetail from '@/pages/ProposalDetail';
 import ClauseLibrary from '@/pages/ClauseLibrary';
 import Analytics from '@/pages/Analytics';
+import Settings from '@/pages/Settings';
 import '@/App.css';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
             <Route path="proposals/:id" element={<ProposalDetail />} />
             <Route path="clauses" element={<ClauseLibrary />} />
             <Route path="analytics" element={<Analytics />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>
       </BrowserRouter>
