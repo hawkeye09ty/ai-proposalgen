@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { FileText, Plus, TrendingUp, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { FileText, Plus, TrendingUp, Clock, CheckCircle, XCircle, Edit2, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -16,6 +18,9 @@ export const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -35,6 +40,56 @@ export const Dashboard = () => {
       toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startEditing = (proposal, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingId(proposal.id);
+    setEditForm({
+      client_name: proposal.client_name,
+      budget_range: proposal.budget_range,
+      timeline: proposal.timeline,
+      status: proposal.status,
+      deal_value: proposal.deal_value || ''
+    });
+  };
+
+  const cancelEditing = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingId(null);
+    setEditForm({});
+  };
+
+  const saveEdit = async (proposalId, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      setSaving(true);
+      const updateData = { ...editForm };
+      if (updateData.deal_value === '') {
+        updateData.deal_value = null;
+      } else {
+        updateData.deal_value = parseFloat(updateData.deal_value);
+      }
+      
+      await axios.patch(`${API}/proposals/${proposalId}`, updateData);
+      
+      setProposals(proposals.map(p => 
+        p.id === proposalId ? { ...p, ...updateData } : p
+      ));
+      
+      setEditingId(null);
+      setEditForm({});
+      toast.success('Proposal updated successfully');
+      fetchData(); // Refresh stats
+    } catch (error) {
+      console.error('Error updating proposal:', error);
+      toast.error('Failed to update proposal');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -167,6 +222,7 @@ export const Dashboard = () => {
             <CardTitle className="font-outfit text-2xl font-semibold text-slate-900">
               All Proposals
             </CardTitle>
+            <CardDescription>Click on a proposal to view details, or use the edit button for quick updates</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="all" onValueChange={setActiveFilter} data-testid="filter-tabs">
@@ -193,41 +249,165 @@ export const Dashboard = () => {
                   </div>
                 ) : (
                   filteredProposals.map((proposal) => (
-                    <Link to={`/proposals/${proposal.id}`} key={proposal.id}>
-                      <Card 
-                        className="border-slate-200 hover:border-blue-300 hover:ring-1 hover:ring-blue-100 transition-all duration-200 cursor-pointer"
-                        data-testid={`proposal-card-${proposal.id}`}
-                      >
-                        <CardContent className="p-6">
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
+                    <div key={proposal.id}>
+                      {editingId === proposal.id ? (
+                        <Card 
+                          className="border-blue-300 ring-2 ring-blue-100"
+                          data-testid={`proposal-edit-${proposal.id}`}
+                        >
+                          <CardContent className="p-6">
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
                                 <h3 className="font-outfit text-lg font-semibold text-slate-900">
-                                  {proposal.client_name}
+                                  Editing Proposal
                                 </h3>
-                                <Badge className={`status-badge ${getStatusBadgeClass(proposal.status)}`}>
-                                  {proposal.status}
-                                </Badge>
+                                <div className="flex gap-2">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={cancelEditing}
+                                    disabled={saving}
+                                    data-testid="cancel-edit-btn"
+                                  >
+                                    <X className="h-4 w-4 mr-1" />
+                                    Cancel
+                                  </Button>
+                                  <Button 
+                                    size="sm"
+                                    onClick={(e) => saveEdit(proposal.id, e)}
+                                    disabled={saving}
+                                    className="bg-slate-900 text-white hover:bg-slate-800"
+                                    data-testid="save-edit-btn"
+                                  >
+                                    <Save className="h-4 w-4 mr-1" />
+                                    {saving ? 'Saving...' : 'Save'}
+                                  </Button>
+                                </div>
                               </div>
-                              <p className="text-slate-600 mb-3 line-clamp-2">
-                                {proposal.project_description}
-                              </p>
-                              <div className="flex gap-6 text-sm text-slate-500">
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                                 <div>
-                                  <span className="font-medium">Budget:</span> {proposal.budget_range}
+                                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1 block">
+                                    Client Name
+                                  </label>
+                                  <Input
+                                    value={editForm.client_name}
+                                    onChange={(e) => setEditForm({ ...editForm, client_name: e.target.value })}
+                                    className="border-slate-200"
+                                    data-testid="edit-client-name"
+                                  />
                                 </div>
                                 <div>
-                                  <span className="font-medium">Timeline:</span> {proposal.timeline}
+                                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1 block">
+                                    Budget Range
+                                  </label>
+                                  <Input
+                                    value={editForm.budget_range}
+                                    onChange={(e) => setEditForm({ ...editForm, budget_range: e.target.value })}
+                                    className="border-slate-200"
+                                    data-testid="edit-budget"
+                                  />
                                 </div>
                                 <div>
-                                  <span className="font-medium">Created:</span> {formatDate(proposal.created_at)}
+                                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1 block">
+                                    Timeline
+                                  </label>
+                                  <Input
+                                    value={editForm.timeline}
+                                    onChange={(e) => setEditForm({ ...editForm, timeline: e.target.value })}
+                                    className="border-slate-200"
+                                    data-testid="edit-timeline"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1 block">
+                                    Deal Value ($)
+                                  </label>
+                                  <Input
+                                    type="number"
+                                    value={editForm.deal_value}
+                                    onChange={(e) => setEditForm({ ...editForm, deal_value: e.target.value })}
+                                    className="border-slate-200"
+                                    placeholder="0"
+                                    data-testid="edit-deal-value"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1 block">
+                                    Status
+                                  </label>
+                                  <Select 
+                                    value={editForm.status} 
+                                    onValueChange={(val) => setEditForm({ ...editForm, status: val })}
+                                  >
+                                    <SelectTrigger className="border-slate-200" data-testid="edit-status">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="Draft">Draft</SelectItem>
+                                      <SelectItem value="Pending Review">Pending Review</SelectItem>
+                                      <SelectItem value="Sent">Sent</SelectItem>
+                                      <SelectItem value="Accepted">Accepted</SelectItem>
+                                      <SelectItem value="Rejected">Rejected</SelectItem>
+                                    </SelectContent>
+                                  </Select>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        <Link to={`/proposals/${proposal.id}`}>
+                          <Card 
+                            className="border-slate-200 hover:border-blue-300 hover:ring-1 hover:ring-blue-100 transition-all duration-200 cursor-pointer"
+                            data-testid={`proposal-card-${proposal.id}`}
+                          >
+                            <CardContent className="p-6">
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <h3 className="font-outfit text-lg font-semibold text-slate-900">
+                                      {proposal.client_name}
+                                    </h3>
+                                    <Badge className={`status-badge ${getStatusBadgeClass(proposal.status)}`}>
+                                      {proposal.status}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-slate-600 mb-3 line-clamp-2">
+                                    {proposal.project_description}
+                                  </p>
+                                  <div className="flex gap-6 text-sm text-slate-500">
+                                    <div>
+                                      <span className="font-medium">Budget:</span> {proposal.budget_range}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Timeline:</span> {proposal.timeline}
+                                    </div>
+                                    {proposal.deal_value && (
+                                      <div>
+                                        <span className="font-medium">Value:</span> ${proposal.deal_value.toLocaleString()}
+                                      </div>
+                                    )}
+                                    <div>
+                                      <span className="font-medium">Created:</span> {formatDate(proposal.created_at)}
+                                    </div>
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => startEditing(proposal, e)}
+                                  className="text-slate-500 hover:text-slate-900"
+                                  data-testid={`edit-proposal-${proposal.id}`}
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      )}
+                    </div>
                   ))
                 )}
               </TabsContent>
