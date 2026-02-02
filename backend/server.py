@@ -541,6 +541,175 @@ async def get_analytics():
         "total_revenue": sum([p['deal_value'] for p in proposals_with_value])
     }
 
+# Settings Model
+class AppSettings(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    company_name: str = "ProposalAI"
+    default_sender_email: str = ""
+    auto_send_on_approval: bool = False
+    brevo_polling_enabled: bool = True
+    brevo_polling_interval: int = 5
+    google_doc_template_id: str = ""
+    approval_keyword: str = "APPROVED"
+    notify_on_proposal_open: bool = True
+    notify_on_proposal_click: bool = True
+
+@api_router.get("/settings")
+async def get_settings():
+    settings = await db.settings.find_one({"_id": "app_settings"})
+    if settings:
+        del settings["_id"]
+        return settings
+    return AppSettings().model_dump()
+
+@api_router.post("/settings")
+async def save_settings(settings: AppSettings):
+    try:
+        settings_dict = settings.model_dump()
+        await db.settings.update_one(
+            {"_id": "app_settings"},
+            {"$set": settings_dict},
+            upsert=True
+        )
+        return {"status": "success", "message": "Settings saved successfully"}
+    except Exception as e:
+        logging.error(f"Error saving settings: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to save settings: {str(e)}")
+
+# Integration Status Endpoints
+@api_router.get("/integrations/resend/status")
+async def get_resend_status():
+    api_key = os.environ.get('RESEND_API_KEY', '')
+    connected = bool(api_key and api_key != 're_123456789' and len(api_key) > 10)
+    return {"connected": connected}
+
+@api_router.get("/integrations/brevo/status")
+async def get_brevo_status():
+    api_key = os.environ.get('BREVO_API_KEY', '')
+    if not api_key:
+        return {"connected": False}
+    
+    try:
+        import httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://api.brevo.com/v3/account",
+                headers={"api-key": api_key}
+            )
+            return {"connected": response.status_code == 200}
+    except Exception as e:
+        logging.error(f"Brevo status check failed: {str(e)}")
+        return {"connected": False}
+
+@api_router.get("/integrations/google/status")
+async def get_google_status():
+    # Check if Google credentials file exists
+    creds_path = ROOT_DIR / 'google_credentials.json'
+    return {"connected": creds_path.exists()}
+
+# Brevo CRM Endpoints
+BREVO_API_KEY = os.environ.get('BREVO_API_KEY', '')
+
+@api_router.get("/brevo/opportunities")
+async def get_brevo_opportunities(stage: Optional[str] = None):
+    """Fetch opportunities from Brevo CRM"""
+    if not BREVO_API_KEY:
+        raise HTTPException(status_code=400, detail="Brevo API key not configured")
+    
+    try:
+        import httpx
+        async with httpx.AsyncClient() as client:
+            params = {}
+            if stage:
+                params["filter[attributes.pipeline_stage]"] = stage
+            
+            response = await client.get(
+                "https://api.brevo.com/v3/crm/deals",
+                headers={"api-key": BREVO_API_KEY, "Content-Type": "application/json"},
+                params=params
+            )
+            
+            if response.status_code != 200:
+                logging.error(f"Brevo API error: {response.text}")
+                raise HTTPException(status_code=response.status_code, detail="Failed to fetch opportunities from Brevo")
+            
+            return response.json()
+    except httpx.RequestError as e:
+        logging.error(f"Brevo request error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to connect to Brevo: {str(e)}")
+
+@api_router.patch("/brevo/opportunities/{deal_id}")
+async def update_brevo_opportunity(deal_id: str, update_data: dict):
+    """Update a Brevo opportunity/deal"""
+    if not BREVO_API_KEY:
+        raise HTTPException(status_code=400, detail="Brevo API key not configured")
+    
+    try:
+        import httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.patch(
+                f"https://api.brevo.com/v3/crm/deals/{deal_id}",
+                headers={"api-key": BREVO_API_KEY, "Content-Type": "application/json"},
+                json=update_data
+            )
+            
+            if response.status_code not in [200, 204]:
+                logging.error(f"Brevo update error: {response.text}")
+                raise HTTPException(status_code=response.status_code, detail="Failed to update Brevo opportunity")
+            
+            return {"status": "success", "message": "Opportunity updated"}
+    except httpx.RequestError as e:
+        logging.error(f"Brevo request error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to connect to Brevo: {str(e)}")
+
+# Webhook endpoint for Brevo
+@api_router.post("/webhooks/brevo")
+async def brevo_webhook(payload: dict):
+    """Handle Brevo webhooks for opportunity stage changes"""
+    try:
+        event_type = payload.get("event")
+        deal_data = payload.get("data", {})
+        
+        logging.info(f"Received Brevo webhook: {event_type}")
+        
+        # Check if deal moved to "proposal" stage
+        if event_type == "deal.stage.update":
+            new_stage = deal_data.get("attributes", {}).get("pipeline_stage", "").lower()
+            
+            if "proposal" in new_stage:
+                # Store the deal for processing
+                brevo_deal = {
+                    "id": str(uuid.uuid4()),
+                    "brevo_deal_id": deal_data.get("id"),
+                    "deal_name": deal_data.get("attributes", {}).get("deal_name", "Unknown"),
+                    "company_name": deal_data.get("linked_companies", [{}])[0].get("name", "Unknown"),
+                    "contact_email": deal_data.get("linked_contacts", [{}])[0].get("email", ""),
+                    "deal_value": deal_data.get("attributes", {}).get("amount", 0),
+                    "stage": new_stage,
+                    "status": "pending_doc_creation",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "raw_data": deal_data
+                }
+                
+                await db.brevo_deals.insert_one(brevo_deal)
+                logging.info(f"Created brevo deal record: {brevo_deal['id']}")
+                
+                return {"status": "success", "message": "Deal queued for proposal creation"}
+        
+        return {"status": "success", "message": "Webhook received"}
+    except Exception as e:
+        logging.error(f"Error processing Brevo webhook: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Webhook processing failed: {str(e)}")
+
+@api_router.get("/brevo/pending-deals")
+async def get_pending_brevo_deals():
+    """Get Brevo deals pending proposal creation"""
+    deals = await db.brevo_deals.find(
+        {"status": {"$in": ["pending_doc_creation", "doc_created", "pending_approval"]}},
+        {"_id": 0}
+    ).to_list(100)
+    return deals
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
