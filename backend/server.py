@@ -672,8 +672,7 @@ async def get_google_auth_url():
 async def google_oauth_callback(code: str, state: Optional[str] = None):
     """Handle Google OAuth callback"""
     try:
-        frontend_url = os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:8001')
-        redirect_uri = f"{frontend_url}/api/google/callback"
+        redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI', 'https://proposal-builder-15.preview.emergentagent.com/api/google/callback')
         
         flow = Flow.from_client_config(
             {
@@ -712,7 +711,7 @@ async def google_oauth_callback(code: str, state: Optional[str] = None):
         )
         
         # Redirect to frontend settings page
-        frontend_base = frontend_url.replace('/api', '').replace(':8001', ':3000')
+        frontend_base = redirect_uri.replace('/api/google/callback', '').replace(':8001', ':3000')
         return RedirectResponse(url=f"{frontend_base}/settings?google_connected=true")
     
     except Exception as e:
