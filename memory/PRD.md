@@ -197,3 +197,22 @@ The Google Docs integration is fully implemented but requires **user authorizati
 - **BREVO_API_KEY**: ✅ Configured
 - **GOOGLE_CLIENT_ID**: ✅ Configured
 - **GOOGLE_CLIENT_SECRET**: ✅ Configured
+- **Google OAuth**: ✅ Connected and authorized
+- **Google Docs Template ID**: `14sCko59WraekYvya7zgbRDjhbhMy4ZxhVU012poK_Xk`
+
+## Template Placeholders
+The proposal template uses these placeholders that auto-populate:
+- `{{company_name}}` - Your company name
+- `{{client_name}}` - Client's name
+- `{{date}}` - Proposal date
+- `{{proposal_id}}` - Unique proposal ID
+- `{{project_description}}` - Project description
+- `{{scope_of_work}}` - Detailed scope
+- `{{timeline}}` - Project timeline
+- `{{milestones}}` - Key milestones
+- `{{budget_range}}` - Budget range
+- `{{deal_value}}` - Deal value
+- `{{pricing_details}}` - Pricing breakdown
+- `{{selected_clauses}}` - Terms & conditions
+- `{{contact_email}}` - Contact email
+- `{{contact_phone}}` - Contact phone
