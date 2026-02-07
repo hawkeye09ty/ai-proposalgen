@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Settings as SettingsIcon, Mail, Link2, FileText, Save, Loader2, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
+import { Settings as SettingsIcon, Mail, Link2, FileText, Save, Loader2, RefreshCw, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,12 +15,14 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 export const Settings = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [connectingGoogle, setConnectingGoogle] = useState(false);
   const [integrationStatus, setIntegrationStatus] = useState({
     resend: { connected: false, checking: false },
     brevo: { connected: false, checking: false },
-    google: { connected: false, checking: false }
+    google: { connected: false, checking: false, needsAuth: false }
   });
   
   const [settings, setSettings] = useState({
@@ -35,6 +38,19 @@ export const Settings = () => {
   });
 
   useEffect(() => {
+    // Check for Google OAuth callback params
+    if (searchParams.get('google_connected') === 'true') {
+      toast.success('Google Docs connected successfully!');
+      searchParams.delete('google_connected');
+      setSearchParams(searchParams);
+      checkIntegrations();
+    }
+    if (searchParams.get('google_error')) {
+      toast.error(`Google connection failed: ${searchParams.get('google_error')}`);
+      searchParams.delete('google_error');
+      setSearchParams(searchParams);
+    }
+    
     fetchSettings();
     checkIntegrations();
   }, []);
@@ -48,7 +64,6 @@ export const Settings = () => {
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
-      // Settings might not exist yet, that's ok
     } finally {
       setLoading(false);
     }
