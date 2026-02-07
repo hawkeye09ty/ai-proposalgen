@@ -167,7 +167,7 @@ async def create_clause(input: ClauseCreate):
 
 @api_router.get("/clauses", response_model=List[Clause])
 async def get_clauses():
-    clauses = await db.clauses.find({}, {"_id": 0}).to_list(1000)
+    clauses = await db.clauses.find({}, {"_id": 0}).to_list(100)
     for clause in clauses:
         if isinstance(clause['created_at'], str):
             clause['created_at'] = datetime.fromisoformat(clause['created_at'])
@@ -182,7 +182,7 @@ async def delete_clause(clause_id: str):
 
 @api_router.get("/templates", response_model=List[Template])
 async def get_templates():
-    templates = await db.templates.find({}, {"_id": 0}).to_list(1000)
+    templates = await db.templates.find({}, {"_id": 0}).to_list(50)
     for template in templates:
         if isinstance(template['created_at'], str):
             template['created_at'] = datetime.fromisoformat(template['created_at'])
@@ -201,9 +201,9 @@ async def create_proposal(input: ProposalCreate):
     return proposal_obj
 
 @api_router.get("/proposals", response_model=List[Proposal])
-async def get_proposals(status: Optional[str] = None):
+async def get_proposals(status: Optional[str] = None, limit: int = 100, skip: int = 0):
     query = {} if not status else {"status": status}
-    proposals = await db.proposals.find(query, {"_id": 0}).to_list(1000)
+    proposals = await db.proposals.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
     for proposal in proposals:
         if isinstance(proposal['created_at'], str):
             proposal['created_at'] = datetime.fromisoformat(proposal['created_at'])
