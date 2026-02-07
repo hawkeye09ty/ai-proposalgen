@@ -100,10 +100,28 @@ export const Settings = () => {
       const googleRes = await axios.get(`${API}/integrations/google/status`);
       setIntegrationStatus(prev => ({ 
         ...prev, 
-        google: { connected: googleRes.data.connected, checking: false } 
+        google: { 
+          connected: googleRes.data.connected, 
+          checking: false,
+          needsAuth: googleRes.data.needs_authorization 
+        } 
       }));
     } catch {
-      setIntegrationStatus(prev => ({ ...prev, google: { connected: false, checking: false } }));
+      setIntegrationStatus(prev => ({ ...prev, google: { connected: false, checking: false, needsAuth: false } }));
+    }
+  };
+
+  const connectGoogle = async () => {
+    try {
+      setConnectingGoogle(true);
+      const response = await axios.get(`${API}/google/auth-url`);
+      if (response.data.auth_url) {
+        window.location.href = response.data.auth_url;
+      }
+    } catch (error) {
+      console.error('Error getting Google auth URL:', error);
+      toast.error('Failed to start Google authorization');
+      setConnectingGoogle(false);
     }
   };
 
