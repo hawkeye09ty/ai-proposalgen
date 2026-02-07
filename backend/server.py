@@ -636,9 +636,8 @@ async def get_google_auth_url():
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
         raise HTTPException(status_code=400, detail="Google OAuth not configured")
     
-    # Get the frontend URL for redirect
-    frontend_url = os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:8001')
-    redirect_uri = f"{frontend_url}/api/google/callback"
+    # Get the redirect URI from environment
+    redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI', 'https://proposal-builder-15.preview.emergentagent.com/api/google/callback')
     
     flow = Flow.from_client_config(
         {
