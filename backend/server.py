@@ -335,7 +335,7 @@ async def send_email(request: SendEmailRequest):
         
         # Create email log entry
         email_log_id = str(uuid.uuid4())
-        tracking_url = f"{os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:8001')}/api"
+        tracking_url = f"{os.environ['REACT_APP_BACKEND_URL']}/api"
         
         # HTML email template
         custom_msg = request.custom_message if request.custom_message else "We're pleased to share our proposal for your consideration."
@@ -471,7 +471,7 @@ async def track_email_click(email_log_id: str):
         email_log = await db.email_logs.find_one({"id": email_log_id}, {"_id": 0})
         
         # Redirect to frontend proposal page
-        frontend_url = os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:3000').replace(':8001', ':3000')
+        frontend_url = os.environ['REACT_APP_BACKEND_URL'].replace(':8001', ':3000')
         return Response(
             status_code=302,
             headers={"Location": f"{frontend_url}/proposals/{email_log['proposal_id']}"}
@@ -636,8 +636,8 @@ async def get_google_auth_url():
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
         raise HTTPException(status_code=400, detail="Google OAuth not configured")
     
-    # Get the redirect URI from environment
-    redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI', 'https://proposal-builder-15.preview.emergentagent.com/api/google/callback')
+    # Get the redirect URI from environment (required)
+    redirect_uri = os.environ['GOOGLE_REDIRECT_URI']
     
     flow = Flow.from_client_config(
         {
@@ -672,7 +672,7 @@ async def get_google_auth_url():
 async def google_oauth_callback(code: str, state: Optional[str] = None):
     """Handle Google OAuth callback"""
     try:
-        redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI', 'https://proposal-builder-15.preview.emergentagent.com/api/google/callback')
+        redirect_uri = os.environ['GOOGLE_REDIRECT_URI']
         
         flow = Flow.from_client_config(
             {
