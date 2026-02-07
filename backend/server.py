@@ -619,9 +619,346 @@ async def get_brevo_status():
 
 @api_router.get("/integrations/google/status")
 async def get_google_status():
-    # Check if Google credentials file exists
-    creds_path = ROOT_DIR / 'google_credentials.json'
-    return {"connected": creds_path.exists()}
+    # Check if Google OAuth tokens exist in database
+    google_auth = await db.google_auth.find_one({"_id": "google_oauth_tokens"})
+    has_credentials = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
+    has_tokens = google_auth is not None and google_auth.get("access_token")
+    return {
+        "connected": has_tokens,
+        "configured": has_credentials,
+        "needs_authorization": has_credentials and not has_tokens
+    }
+
+# Google OAuth Endpoints
+@api_router.get("/google/auth-url")
+async def get_google_auth_url():
+    """Generate Google OAuth authorization URL"""
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        raise HTTPException(status_code=400, detail="Google OAuth not configured")
+    
+    # Get the frontend URL for redirect
+    frontend_url = os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:8001')
+    redirect_uri = f"{frontend_url}/api/google/callback"
+    
+    flow = Flow.from_client_config(
+        {
+            "web": {
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": [redirect_uri]
+            }
+        },
+        scopes=GOOGLE_SCOPES,
+        redirect_uri=redirect_uri
+    )
+    
+    auth_url, state = flow.authorization_url(
+        access_type='offline',
+        include_granted_scopes='true',
+        prompt='consent'
+    )
+    
+    # Store state for verification
+    await db.google_auth.update_one(
+        {"_id": "oauth_state"},
+        {"$set": {"state": state, "created_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+    
+    return {"auth_url": auth_url, "state": state}
+
+@api_router.get("/google/callback")
+async def google_oauth_callback(code: str, state: Optional[str] = None):
+    """Handle Google OAuth callback"""
+    try:
+        frontend_url = os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:8001')
+        redirect_uri = f"{frontend_url}/api/google/callback"
+        
+        flow = Flow.from_client_config(
+            {
+                "web": {
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "redirect_uris": [redirect_uri]
+                }
+            },
+            scopes=GOOGLE_SCOPES,
+            redirect_uri=redirect_uri
+        )
+        
+        # Exchange code for tokens
+        flow.fetch_token(code=code)
+        credentials = flow.credentials
+        
+        # Store tokens in database
+        token_data = {
+            "access_token": credentials.token,
+            "refresh_token": credentials.refresh_token,
+            "token_uri": credentials.token_uri,
+            "client_id": credentials.client_id,
+            "client_secret": credentials.client_secret,
+            "scopes": list(credentials.scopes) if credentials.scopes else GOOGLE_SCOPES,
+            "expiry": credentials.expiry.isoformat() if credentials.expiry else None,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        await db.google_auth.update_one(
+            {"_id": "google_oauth_tokens"},
+            {"$set": token_data},
+            upsert=True
+        )
+        
+        # Redirect to frontend settings page
+        frontend_base = frontend_url.replace('/api', '').replace(':8001', ':3000')
+        return RedirectResponse(url=f"{frontend_base}/settings?google_connected=true")
+    
+    except Exception as e:
+        logging.error(f"Google OAuth callback error: {str(e)}")
+        frontend_base = os.environ.get('REACT_APP_BACKEND_URL', '').replace(':8001', ':3000')
+        return RedirectResponse(url=f"{frontend_base}/settings?google_error={str(e)}")
+
+async def get_google_credentials():
+    """Get Google credentials from database and refresh if needed"""
+    token_data = await db.google_auth.find_one({"_id": "google_oauth_tokens"})
+    
+    if not token_data or not token_data.get("access_token"):
+        return None
+    
+    credentials = Credentials(
+        token=token_data["access_token"],
+        refresh_token=token_data.get("refresh_token"),
+        token_uri=token_data.get("token_uri", "https://oauth2.googleapis.com/token"),
+        client_id=token_data.get("client_id", GOOGLE_CLIENT_ID),
+        client_secret=token_data.get("client_secret", GOOGLE_CLIENT_SECRET),
+        scopes=token_data.get("scopes", GOOGLE_SCOPES)
+    )
+    
+    # Refresh if expired
+    if credentials.expired and credentials.refresh_token:
+        from google.auth.transport.requests import Request
+        credentials.refresh(Request())
+        
+        # Update stored tokens
+        await db.google_auth.update_one(
+            {"_id": "google_oauth_tokens"},
+            {"$set": {
+                "access_token": credentials.token,
+                "expiry": credentials.expiry.isoformat() if credentials.expiry else None,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+    
+    return credentials
+
+# Google Docs Endpoints
+class CreateDocRequest(BaseModel):
+    template_id: str
+    document_title: str
+    data: Dict[str, Any]
+
+@api_router.post("/google/docs/create-from-template")
+async def create_doc_from_template(request: CreateDocRequest):
+    """Create a new Google Doc from a template and populate with data"""
+    credentials = await get_google_credentials()
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Google not authorized. Please connect Google in Settings.")
+    
+    try:
+        drive_service = build('drive', 'v3', credentials=credentials)
+        docs_service = build('docs', 'v1', credentials=credentials)
+        
+        # Copy the template
+        copy_metadata = {'name': request.document_title}
+        copied_file = drive_service.files().copy(
+            fileId=request.template_id,
+            body=copy_metadata
+        ).execute()
+        
+        new_doc_id = copied_file['id']
+        
+        # Replace placeholders with data
+        requests = []
+        for placeholder, value in request.data.items():
+            requests.append({
+                'replaceAllText': {
+                    'containsText': {
+                        'text': f'{{{{{placeholder}}}}}',
+                        'matchCase': False
+                    },
+                    'replaceText': str(value)
+                }
+            })
+        
+        if requests:
+            docs_service.documents().batchUpdate(
+                documentId=new_doc_id,
+                body={'requests': requests}
+            ).execute()
+        
+        # Store document metadata
+        doc_record = {
+            "id": str(uuid.uuid4()),
+            "google_doc_id": new_doc_id,
+            "title": request.document_title,
+            "template_id": request.template_id,
+            "status": "draft",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "shared_with": [],
+            "data_snapshot": request.data
+        }
+        await db.google_docs.insert_one(doc_record)
+        
+        return {
+            "success": True,
+            "document_id": new_doc_id,
+            "document_url": f"https://docs.google.com/document/d/{new_doc_id}/edit",
+            "metadata_id": doc_record["id"]
+        }
+    
+    except HttpError as e:
+        logging.error(f"Google API error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Google API error: {str(e)}")
+
+class ShareDocRequest(BaseModel):
+    document_id: str
+    email: str
+    role: str = "writer"  # reader, commenter, writer
+
+@api_router.post("/google/docs/share")
+async def share_google_doc(request: ShareDocRequest):
+    """Share a Google Doc with a user"""
+    credentials = await get_google_credentials()
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Google not authorized")
+    
+    try:
+        drive_service = build('drive', 'v3', credentials=credentials)
+        
+        permission = {
+            'type': 'user',
+            'role': request.role,
+            'emailAddress': request.email
+        }
+        
+        result = drive_service.permissions().create(
+            fileId=request.document_id,
+            body=permission,
+            sendNotificationEmail=True
+        ).execute()
+        
+        # Update metadata
+        await db.google_docs.update_one(
+            {"google_doc_id": request.document_id},
+            {
+                "$push": {"shared_with": request.email},
+                "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+            }
+        )
+        
+        return {"success": True, "permission_id": result.get("id")}
+    
+    except HttpError as e:
+        logging.error(f"Share error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to share document: {str(e)}")
+
+@api_router.get("/google/docs/{document_id}/comments")
+async def get_doc_comments(document_id: str):
+    """Get comments from a Google Doc"""
+    credentials = await get_google_credentials()
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Google not authorized")
+    
+    try:
+        drive_service = build('drive', 'v3', credentials=credentials)
+        
+        results = drive_service.comments().list(
+            fileId=document_id,
+            fields="comments(id,author,content,createdTime,resolved)",
+            pageSize=100
+        ).execute()
+        
+        return {"comments": results.get("comments", [])}
+    
+    except HttpError as e:
+        logging.error(f"Comments error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get comments: {str(e)}")
+
+@api_router.post("/google/docs/{document_id}/check-approval")
+async def check_doc_approval(document_id: str, approval_keyword: str = "APPROVED"):
+    """Check if a document has been approved via comments"""
+    credentials = await get_google_credentials()
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Google not authorized")
+    
+    try:
+        drive_service = build('drive', 'v3', credentials=credentials)
+        
+        results = drive_service.comments().list(
+            fileId=document_id,
+            fields="comments(id,content,resolved)",
+            pageSize=100
+        ).execute()
+        
+        comments = results.get("comments", [])
+        approved = any(approval_keyword.upper() in c.get("content", "").upper() for c in comments)
+        
+        if approved:
+            await db.google_docs.update_one(
+                {"google_doc_id": document_id},
+                {"$set": {
+                    "status": "approved",
+                    "approved_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+        
+        return {"approved": approved, "keyword": approval_keyword}
+    
+    except HttpError as e:
+        logging.error(f"Approval check error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to check approval: {str(e)}")
+
+@api_router.get("/google/docs/{document_id}/export-pdf")
+async def export_doc_to_pdf(document_id: str):
+    """Export a Google Doc to PDF"""
+    credentials = await get_google_credentials()
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Google not authorized")
+    
+    try:
+        drive_service = build('drive', 'v3', credentials=credentials)
+        
+        # Get document title
+        doc_meta = await db.google_docs.find_one({"google_doc_id": document_id})
+        title = doc_meta.get("title", "document") if doc_meta else "document"
+        
+        # Export as PDF
+        request = drive_service.files().export(
+            fileId=document_id,
+            mimeType='application/pdf'
+        )
+        pdf_content = request.execute()
+        
+        return StreamingResponse(
+            io.BytesIO(pdf_content),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={title}.pdf"}
+        )
+    
+    except HttpError as e:
+        logging.error(f"PDF export error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to export PDF: {str(e)}")
+
+@api_router.get("/google/docs/list")
+async def list_google_docs():
+    """List all Google Docs created by the app"""
+    docs = await db.google_docs.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return {"documents": docs}
 
 # Brevo CRM Endpoints
 BREVO_API_KEY = os.environ.get('BREVO_API_KEY', '')
