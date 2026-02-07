@@ -758,6 +758,62 @@ class CreateDocRequest(BaseModel):
     document_title: str
     data: Dict[str, Any]
 
+class CreateNewDocRequest(BaseModel):
+    document_title: str
+    content: Optional[str] = None
+
+@api_router.post("/google/docs/create-new")
+async def create_new_google_doc(request: CreateNewDocRequest):
+    """Create a brand new Google Doc with optional content"""
+    credentials = await get_google_credentials()
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Google not authorized. Please connect Google in Settings.")
+    
+    try:
+        docs_service = build('docs', 'v1', credentials=credentials)
+        
+        # Create a new blank document
+        doc = docs_service.documents().create(body={'title': request.document_title}).execute()
+        new_doc_id = doc.get('documentId')
+        
+        # If content provided, add it to the document
+        if request.content:
+            requests = [{
+                'insertText': {
+                    'location': {'index': 1},
+                    'text': request.content
+                }
+            }]
+            docs_service.documents().batchUpdate(
+                documentId=new_doc_id,
+                body={'requests': requests}
+            ).execute()
+        
+        # Store document metadata
+        doc_record = {
+            "id": str(uuid.uuid4()),
+            "google_doc_id": new_doc_id,
+            "title": request.document_title,
+            "template_id": None,
+            "status": "draft",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "shared_with": [],
+            "data_snapshot": {}
+        }
+        await db.google_docs.insert_one(doc_record)
+        
+        return {
+            "success": True,
+            "document_id": new_doc_id,
+            "document_url": f"https://docs.google.com/document/d/{new_doc_id}/edit",
+            "metadata_id": doc_record["id"]
+        }
+    
+    except HttpError as e:
+        logging.error(f"Google API error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Google API error: {str(e)}")
+
 @api_router.post("/google/docs/create-from-template")
 async def create_doc_from_template(request: CreateDocRequest):
     """Create a new Google Doc from a template and populate with data"""
