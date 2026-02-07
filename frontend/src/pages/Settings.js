@@ -255,7 +255,25 @@ export const Settings = () => {
                   <FileText className="h-5 w-5 text-slate-600" />
                   <span className="font-medium text-slate-900">Google Docs</span>
                 </div>
-                <IntegrationStatusBadge status={integrationStatus.google} />
+                <div className="flex items-center gap-2">
+                  {!integrationStatus.google.connected && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={connectGoogle}
+                      disabled={connectingGoogle}
+                      data-testid="connect-google-button"
+                    >
+                      {connectingGoogle ? (
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
+                        <ExternalLink className="h-3 w-3 mr-1" />
+                      )}
+                      Connect
+                    </Button>
+                  )}
+                  <IntegrationStatusBadge status={integrationStatus.google} />
+                </div>
               </div>
             </div>
           </CardContent>
