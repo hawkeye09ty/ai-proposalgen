@@ -716,7 +716,7 @@ async def google_oauth_callback(code: str, state: Optional[str] = None):
     
     except Exception as e:
         logging.error(f"Google OAuth callback error: {str(e)}")
-        frontend_base = os.environ.get('REACT_APP_BACKEND_URL', '').replace(':8001', ':3000')
+        frontend_base = os.environ['REACT_APP_BACKEND_URL'].replace(':8001', ':3000')
         return RedirectResponse(url=f"{frontend_base}/settings?google_error={str(e)}")
 
 async def get_google_credentials():
