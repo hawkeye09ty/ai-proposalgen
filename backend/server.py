@@ -521,7 +521,11 @@ async def get_stats():
 
 @api_router.get("/analytics")
 async def get_analytics():
-    proposals = await db.proposals.find({}, {"_id": 0}).to_list(1000)
+    # Use projection to only fetch needed fields for analytics
+    proposals = await db.proposals.find(
+        {}, 
+        {"_id": 0, "status": 1, "deal_value": 1, "created_at": 1, "accepted_at": 1}
+    ).to_list(10000)
     
     total = len(proposals)
     accepted = len([p for p in proposals if p['status'] == 'Accepted'])
