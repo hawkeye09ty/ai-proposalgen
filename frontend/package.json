@@ -62,8 +62,7 @@
   "scripts": {
     "start": "craco start",
     "build": "craco build",
-    "test": "craco test",
-    "postinstall": "npm install ajv@8 ajv-keywords@3"
+    "test": "craco test"
   },
   "browserslist": {
     "production": [
