@@ -92,6 +92,10 @@
     "ajv": "^6.12.6",
   "ajv-keywords": "^3.5.2"
   },
+  "resolutions": {
+  "ajv": "6.12.6"
+}
+
   "packageManager": "yarn@1.22.22",
   "engines": {
     "node": "20.x"
